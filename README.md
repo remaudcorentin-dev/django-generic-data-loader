@@ -1,7 +1,9 @@
 # django-generic-data-loader
 Django Generic Data Load - For fast data import into Django Models
 
-Simple set of function to create fast and reliable data import.
+#### Simple sets of function to create fast and reliable data import.
+
+Very minimalistic usage example bellow
 
 ```python
 
