@@ -3,8 +3,6 @@ Django Generic Data Load - For fast data import into Django Models
 
 Simple set of function to create fast and reliable data import.
 
-// TODO: Usage examples
-
 ```python
 
 from models import User
@@ -56,3 +54,8 @@ def run_import(file_path):
 run_import("dataset.exemple.csv")
 
 ```
+
+TODO:
+- Advandced usage example,
+- Description of all rules and functions,
+- Guide to create additional "standard custom" functions
