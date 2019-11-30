@@ -160,88 +160,6 @@ def load_data(data, ModelToUpdate, pk="id", return_only_records_in_data=False):
         # Return all records of the 'ModelToUpdate' in form of a dict where the key of each element is the 'pk'.
         return {getattr(elem, pk): elem for elem in ModelToUpdate.objects.all()}
 
-
-###
-
-def get_existing_records_by_two_keys(ModelToUpdate, query_1, query_2, field_1, field_2, key_1, key_2):
-    query_dict = {
-        "%s__%s__in" % (field_1, key_1): list(query_1.keys()),
-        "%s__%s__in" % (field_2, key_2): list(query_2.keys())
-    }
-    return ModelToUpdate.objects.filter(**query_dict)
-
-
-def load_2m2_rls(data, ModelToUpdate, query_1, query_2, field_1, field_2, key_1, key_2):
-    """
-    Essentially the same as above with a different way of retrieving existing records.
-    Manage two primary keys.
-    """
-
-    obj_can_be_primary = 'is_primary' in ModelToUpdate.__dict__
-
-    plog("# Loading '%s' data (2m2_rls)" % ModelToUpdate.__name__)
-
-    #existing_records = ModelToUpdate.objects.all().prefetch_related(field_1, field_2)
-    existing_records = get_existing_records_by_two_keys(ModelToUpdate, query_1, query_2, field_1, field_2, key_1, key_2)
-    existing_records = {
-        "%s_%s" % (getattr(getattr(row, field_1), key_1),
-                   getattr(getattr(row, field_2), key_2)): row for row in existing_records
-    }
-    existing_records_keys = existing_records.keys()
-
-    to_create = []
-    rows_to_update = []
-
-    pks_to_be_created = set()
-
-    # Split records between already existing ones and those to create
-    for i, row in enumerate(data):
-
-        cmp_key = "%s_%s" % (row['%s__%s' % (field_1, key_1)],
-                             row['%s__%s' % (field_2, key_2)])
-
-        # To avoid create duplicate
-        if cmp_key in pks_to_be_created:
-            continue
-
-        if cmp_key in existing_records_keys:
-            rows_to_update.append(row)
-        else:
-            data_to_update = {
-                field_1: query_1[row['%s__%s' % (field_1, key_1)]],
-                field_2: query_2[row['%s__%s' % (field_2, key_2)]],
-            }
-            if obj_can_be_primary:
-                data_to_update['is_primary'] = row.get('is_primary', True)
-
-            to_create.append(ModelToUpdate(**data_to_update))
-            pks_to_be_created.add(cmp_key)
-
-    plog("Splitting %s records" % len(rows_to_update))
-    i = 0
-    actually_updated = 0
-    total_length = len(rows_to_update)
-    for row_to_update in rows_to_update:
-        if i % PRINT_COEF == 0:
-            plog("%d / %d" % (i, total_length))
-        row_to_update_key = "%s_%s" % (row_to_update['%s__%s' % (field_1, key_1)],
-                                       row_to_update['%s__%s' % (field_2, key_2)])
-        if obj_can_be_primary and row_to_update.get('is_primary', True) != existing_records[row_to_update_key].is_primary:
-            existing_records[row_to_update_key].is_primary = row_to_update.get('is_primary', True)
-            existing_records[row_to_update_key].save()
-            actually_updated += 1
-        i += 1
-    plog("Done update (%d actual records)" % actually_updated)
-
-    plog("Creating %d new records..." % (len(to_create)))
-    # Split the list of data to create in chunks of 'CHUNKS_SIZE' elements
-    #  to avoid 'bulk_update' to crash when too many records.
-    chunks_to_create = [to_create[i:i + CHUNKS_SIZE] for i in range(0, len(to_create), CHUNKS_SIZE)]
-    for chunk_to_create in chunks_to_create:
-        ModelToUpdate.objects.bulk_create(chunk_to_create)
-    plog("Done creating new records")
-
-
 # Advanced usages bellow
 
 def object_import(raw_data, mapping, ModelToUpdate, pk_field):
@@ -252,16 +170,3 @@ def object_import(raw_data, mapping, ModelToUpdate, pk_field):
     return load_data(
         transform_data(raw_data, mapping.items()),
         ModelToUpdate=ModelToUpdate, pk=pk_field)
-
-
-def object_import_m2m(raw_data, mapping, ModelToUpdate,
-                      query_1, query_2, field_1, field_2, key_1, key_2):
-    """
-    To import intermediate models defined by the 'ModelToUpdate' class related to two other models.
-    Import data from 'raw_data' according the to 'mapping'.
-    'field_1' and 'field_2' defines the foreign keys of the model.
-    They refers to 'query_1' and 'query_2' queries matched by 'key_1' and 'key_2' parameters.
-    """
-    load_2m2_rls(
-        transform_data(raw_data, mapping.items()),
-        ModelToUpdate, query_1, query_2, field_1, field_2, key_1, key_2)
