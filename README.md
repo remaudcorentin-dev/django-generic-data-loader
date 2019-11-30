@@ -58,6 +58,6 @@ run_import("dataset.exemple.csv")
 ```
 
 TODO:
-- Advandced usage example,
-- Description of all rules and functions,
+- Advanced usage example(s),
+- Description of all available rules and functions,
 - Guide to create additional "standard custom" functions
